@@ -295,6 +295,8 @@ html, body {
 }
 /* 勾选后左上角的入向角标让位给 ✓，下移一行避免遮挡 */
 .file-item.selected .assoc-badge.assoc-in { top: 25px; }
+/* 混合选择模式：未勾选的文件不显示关联角标，只保留已 pick 项的关联信息（明细见右栏） */
+body:not(.mode-dir) .file-item:not(.selected) .assoc-badge { display: none; }
 
 /* ============ 鼠标拖框多选 ============ */
 .marquee {
@@ -373,6 +375,16 @@ body.marqueeing .file-item * {
   padding: 4px 8px;
   font-size: 11px;
   color: var(--text-dim);
+  cursor: pointer;
+  transition: border-color .12s, background .12s;
+}
+.chip:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+/* 当前正在下方查看其关联的已选项 */
+.chip.focus {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, var(--bg-elev2));
+  color: var(--text);
+  box-shadow: 0 0 0 1px var(--accent) inset;
 }
 .chip .chip-ic { flex-shrink: 0; }
 .chip .chip-name {
@@ -434,6 +446,16 @@ body.marqueeing .file-item * {
   line-height: 1.5;
   color: var(--text-faint);
 }
+.exist-sub {
+  margin: 4px 0 2px;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--text-dim);
+  word-break: break-all;
+}
+.exist-sub b { color: var(--text); font-weight: 600; }
+.exist-sub.muted { color: var(--text-faint); font-size: 11px; }
+.exist-switch { color: var(--text-faint); font-size: 10.5px; }
 .exist-list {
   flex: 1;
   min-height: 0;

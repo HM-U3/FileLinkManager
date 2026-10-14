@@ -20,7 +20,8 @@
     recent: [],
     drives: [],
     target: '',           // 正在为之添加关联的源文件/文件夹（仅 mode=both）
-    existing: [],         // 源文件已有的关联 [{ path, name, isDir, missing }]
+    focusPath: '',        // 右栏正在查看哪个“已选项”的关联（chosen 中的某个 B）
+    focusAssoc: [],       // 该已选项 B 已有的关联 [{ path, name, isDir, missing }]
     flashPath: ''         // 跳转目录后需要高亮定位一次的路径
   };
 
@@ -170,10 +171,16 @@
     wrap.innerHTML = '';
     for (const [p, info] of state.chosen) {
       const chip = document.createElement('span');
-      chip.className = 'chip';
-      chip.title = p;
+      chip.className = 'chip' + (p === state.focusPath ? ' focus' : '');
+      chip.title = p + '\n（点击在下方查看它已有的关联）';
       chip.innerHTML = `<span class="chip-ic">${info.isDir ? '📁' : '📄'}</span><span class="chip-name">${escapeHtml(info.name)}</span><span class="chip-x" title="移除">✕</span>`;
-      chip.querySelector('.chip-x').onclick = () => {
+      // 点 chip 主体 = 把它设为下方“关联预览”的查看对象（有已选项时始终保持一个聚焦）
+      chip.addEventListener('click', (e) => {
+        if (e.target.closest('.chip-x')) return;
+        if (state.focusPath !== p) setFocus(p);
+      });
+      chip.querySelector('.chip-x').onclick = (e) => {
+        e.stopPropagation();
         state.chosen.delete(p);
         afterChosenChange();
       };
@@ -187,21 +194,56 @@
     });
   }
 
+  // chosen 增删后的统一收口：保证 focus 始终指向一个有效的已选项，再刷新关联预览
   function afterChosenChange() {
+    if (state.focusPath && !state.chosen.has(state.focusPath)) state.focusPath = '';
+    if (!state.focusPath && state.chosen.size) {
+      // 默认查看最近勾选的那一项（Map 保持插入顺序，取最后一个）
+      state.focusPath = [...state.chosen.keys()].pop();
+    }
     renderChosen();
-    syncExistChosenMarks();
+    refreshFocusAssoc();
   }
 
-  // ---------- 右栏：源文件已有的关联 ----------
-  async function loadExisting() {
-    if (!state.target) return;
-    $('exist-wrap').style.display = '';
-    const nm = api.path.basename(state.target) || state.target;
-    $('exist-name').textContent = nm;
+  function setFocus(p) {
+    state.focusPath = p;
+    renderChosen();
+    refreshFocusAssoc();
+  }
+
+  // ---------- 右栏：当前已选项 B 已有的关联 ----------
+  let focusToken = 0; // 快速切换查看对象时丢弃过期的加载结果
+  async function refreshFocusAssoc() {
+    const token = ++focusToken;
+    const ul = $('exist-list');
+    const sub = $('exist-sub');
+    const tip = $('exist-tip');
+    const count = $('exist-count');
+    ul.innerHTML = '';
+    const focus = state.chosen.get(state.focusPath);
+
+    if (!focus) {
+      count.textContent = '0';
+      tip.style.display = 'none';
+      sub.textContent = '勾选中间的文件 / 文件夹后，这里会显示它已有的关联';
+      sub.className = 'exist-sub muted';
+      state.focusAssoc = [];
+      return;
+    }
+
+    const n = state.chosen.size;
+    sub.className = 'exist-sub';
+    sub.innerHTML = `${focus.isDir ? '📁' : '📄'} 正在查看 <b>${escapeHtml(focus.name)}</b> 的关联`
+      + (n > 1 ? ' <span class="exist-switch">（点上方其他已选项可切换）</span>' : '');
+    tip.style.display = '';
+
+    // 先用 chosen 里已知的信息占位，随后异步取真实关联
+    count.textContent = '…';
     let paths = [];
     try {
-      paths = await api.assoc.list(state.target);
+      paths = await api.assoc.list(state.focusPath);
     } catch { paths = []; }
+    if (token !== focusToken) return; // 用户已切到别的已选项
     // 并发查类型（stat 失败说明项目已被移动/删除，仍列出但灰显）
     const infos = await Promise.all(paths.map(async (p) => {
       let isDir = false;
@@ -213,22 +255,23 @@
       } catch { missing = true; }
       return { path: p, name: api.path.basename(p) || p, isDir, missing };
     }));
-    state.existing = infos;
-    renderExist();
+    if (token !== focusToken) return;
+    state.focusAssoc = infos;
+    renderFocusAssoc();
   }
 
-  function renderExist() {
+  function renderFocusAssoc() {
     const ul = $('exist-list');
     ul.innerHTML = '';
-    $('exist-count').textContent = state.existing.length;
-    if (!state.existing.length) {
+    $('exist-count').textContent = state.focusAssoc.length;
+    if (!state.focusAssoc.length) {
       const li = document.createElement('div');
       li.className = 'exist-empty';
-      li.textContent = '还没有关联，从中间挑选第一个吧～';
+      li.textContent = '它还没有任何关联～';
       ul.appendChild(li);
       return;
     }
-    for (const it of state.existing) {
+    for (const it of state.focusAssoc) {
       const li = document.createElement('div');
       li.className = 'exist-item' + (it.missing ? ' missing' : '');
       li.dataset.path = it.path;
@@ -251,7 +294,7 @@
     syncExistChosenMarks();
   }
 
-  // chosen 变化时，同步关联项上的“已选”小标记（已关联过的项目无需重复选择）
+  // chosen 变化时，同步关联项上的“已选”小标记（已在本次选择中的项目无需重复选择）
   function syncExistChosenMarks() {
     document.querySelectorAll('.exist-item').forEach(li => {
       li.classList.toggle('picked', state.chosen.has(li.dataset.path));
@@ -592,8 +635,12 @@
     $('recent-section').style.display = recentEnabled ? '' : 'none';
     if (recentEnabled) renderRecent(settings && typeof settings.recentLimit === 'number' ? settings.recentLimit : 8);
 
-    // 右栏加载源文件已有的关联（仅“为某文件添加关联”时存在 target）
-    loadExisting();
+    // 右栏“已选项的关联”仅混合选择模式（添加关联）使用；文件夹单选模式隐藏
+    if (MODE === 'dir') {
+      $('exist-wrap').style.display = 'none';
+    } else {
+      refreshFocusAssoc();
+    }
 
     await navigate(start || home);
   })();

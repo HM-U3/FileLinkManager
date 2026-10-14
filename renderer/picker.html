@@ -47,21 +47,22 @@
         </div>
       </section>
 
-      <!-- 右侧栏：上=本次已选区（跨目录累积）；下=源文件已有的关联（点“前往”可跳到其所在目录） -->
+      <!-- 右侧栏：上=本次已选区（点击某个已选项，下方查看它已有的关联）；下=关联预览 -->
       <aside class="side-right" id="sel-bar">
         <div class="sel-head">
           <span class="sel-title">已选 <b id="sel-count">0</b> 项</span>
           <button id="btn-clear" class="link-btn">清空</button>
         </div>
-        <div class="sel-hint">可进入其他文件夹继续添加</div>
+        <div class="sel-hint">点击某个已选项，可在下方查看它已有的关联</div>
         <div class="sel-chips" id="sel-chips"></div>
 
-        <div class="exist-wrap" id="exist-wrap" style="display:none">
+        <div class="exist-wrap" id="exist-wrap">
           <div class="exist-head">
-            <span class="exist-title">🔗 <span id="exist-name">它</span> 已有的关联</span>
+            <span class="exist-title">🔗 已选项的关联</span>
             <b class="exist-count" id="exist-count">0</b>
           </div>
-          <div class="exist-tip">点“前往”跳到该项目所在文件夹，方便挑选同目录的其他文件</div>
+          <div class="exist-sub muted" id="exist-sub">勾选中间的文件 / 文件夹后，这里会显示它已有的关联</div>
+          <div class="exist-tip" id="exist-tip" style="display:none">点“前往”跳到该项目所在文件夹，方便挑选同目录的其他文件</div>
           <div class="exist-list" id="exist-list"></div>
         </div>
       </aside>

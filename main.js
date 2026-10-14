@@ -77,6 +77,67 @@ async function saveDb(db) {
   await fsp.writeFile(dbPath, JSON.stringify(db, null, 2), 'utf8');
 }
 
+// 把关联库里的旧路径批量改写成新路径（软件内重命名/移动时调用，链接不断）。
+// moves: [{ from, to }]。等值替换；from 是文件夹时，其内部项目（from\xxx）也做前缀替换。
+// key（关联源）被改名时迁移到新 key，与已有记录合并去重；空数组的 key 删除。
+async function rewritePathsInDb(movesRaw) {
+  const allMoves = (Array.isArray(movesRaw) ? movesRaw : [])
+    .filter(m => m && typeof m.from === 'string' && typeof m.to === 'string' && m.from !== m.to);
+  if (!allMoves.length) return;
+  // 长路径优先：同时移动父、子文件夹时，先替换更深的路径，避免被父级规则误伤
+  const moves = [...allMoves].sort((a, b) => b.from.length - a.from.length);
+  const db = await loadDb();
+  let changed = false;
+
+  const rewrite = (p) => {
+    if (typeof p !== 'string' || !p) return p;
+    const low = p.toLowerCase();
+    for (const m of moves) {
+      const fl = m.from.toLowerCase();
+      if (low === fl) { changed = true; return m.to; }
+      if (low.startsWith(fl + path.sep)) { changed = true; return m.to + p.slice(m.from.length); }
+    }
+    return p;
+  };
+  const mergeInto = (dest, arr) => {
+    if (!Array.isArray(db[dest])) db[dest] = [];
+    const seen = new Set(db[dest].map(x => String(x).toLowerCase()));
+    for (const p of arr) {
+      if (!seen.has(String(p).toLowerCase())) { seen.add(String(p).toLowerCase()); db[dest].push(p); }
+    }
+  };
+
+  // 1) 数组内的目标路径替换（顺带去重）
+  for (const k of Object.keys(db)) {
+    if (!Array.isArray(db[k])) { delete db[k]; changed = true; continue; }
+    const seen = new Set();
+    const out = [];
+    for (const p0 of db[k]) {
+      const p = rewrite(p0);
+      const pl = String(p).toLowerCase();
+      if (!seen.has(pl)) { seen.add(pl); out.push(p); }
+    }
+    if (out.length !== db[k].length || out.some((p, i) => p !== db[k][i])) changed = true;
+    db[k] = out;
+  }
+
+  // 2) key（关联源）路径替换：等值或文件夹前缀
+  for (const oldK of Object.keys(db)) {
+    const newK = rewrite(oldK);
+    if (newK === oldK) continue;
+    const arr = db[oldK];
+    delete db[oldK];
+    mergeInto(newK, arr);
+    changed = true;
+  }
+
+  // 3) 清理空记录
+  for (const k of Object.keys(db)) {
+    if (Array.isArray(db[k]) && db[k].length === 0) { delete db[k]; changed = true; }
+  }
+  if (changed) await saveDb(db);
+}
+
 async function loadRecent() {
   try {
     return JSON.parse(await fsp.readFile(recentPath, 'utf8'));
@@ -501,7 +562,7 @@ ipcMain.handle('op:paste', async (e, destDir) => {
       if (clipboard.mode === 'cut') {
         await fsp.rm(src, { recursive: true, force: true });
       }
-      results.push({ ok: true, from: src, to: target });
+      results.push({ ok: true, from: src, to: target, moved: clipboard.mode === 'cut' });
     } catch (err) {
       results.push({ ok: false, from: src, error: err.message });
     }
@@ -511,6 +572,9 @@ ipcMain.handle('op:paste', async (e, destDir) => {
     const failed = results.filter(x => !x.ok).map(x => x.from);
     clipboard = failed.length ? { items: failed, mode: 'cut' } : { items: [], mode: 'copy' };
   }
+  // 剪切成功的项目：同步改写关联库路径，链接不断（复制不动库，副本是新文件）
+  const moved = results.filter(x => x.ok && x.moved).map(x => ({ from: x.from, to: x.to }));
+  if (moved.length) await rewritePathsInDb(moved).catch(() => {});
   return { ok: true, results };
 });
 
@@ -572,6 +636,9 @@ ipcMain.handle('op:transfer', async (e, items, destDir, mode) => {
       results.push({ ok: false, from: src, error: err.message });
     }
   }
+  // 移动成功的项目同步改写关联库；复制不动库
+  const moved = results.filter(x => x.ok && x.action === 'move').map(x => ({ from: x.from, to: x.to }));
+  if (moved.length) await rewritePathsInDb(moved).catch(() => {});
   return { ok: true, results };
 });
 
@@ -601,6 +668,8 @@ ipcMain.handle('op:rename', async (e, oldPath, newName) => {
     const dir = path.dirname(oldPath);
     const target = await safeJoinName(dir, newName);
     await fsp.rename(oldPath, target);
+    // 同步改写关联库（含文件夹内部项目的路径前缀），链接不断
+    await rewritePathsInDb([{ from: oldPath, to: target }]).catch(() => {});
     return { ok: true, path: target };
   } catch (err) {
     return { ok: false, error: err.message };
@@ -694,6 +763,62 @@ ipcMain.handle('assoc:removeMany', async (e, filePath, relatedPaths) => {
     await saveDb(db);
   }
   return { ok: true, related: db[filePath] || [] };
+});
+
+// 一键清理：删除所有指向“已不存在路径”的关联记录。
+// - 源路径本身已不存在（文件被移动/删除）的整组记录删除
+// - 其余源记录里，逐条剔除已失效的目标路径（不影响仍有效的关联）
+ipcMain.handle('assoc:pruneMissing', async () => {
+  const db = await loadDb();
+  let sourcesRemoved = 0;
+  let edgesRemoved = 0;
+  for (const k of Object.keys(db)) {
+    let srcExists = true;
+    try { await fsp.access(k); } catch { srcExists = false; }
+    if (!srcExists) {
+      edgesRemoved += Array.isArray(db[k]) ? db[k].length : 0;
+      delete db[k];
+      sourcesRemoved++;
+      continue;
+    }
+    if (!Array.isArray(db[k])) { delete db[k]; continue; }
+    const kept = [];
+    for (const p of db[k]) {
+      let ok = true;
+      try { await fsp.access(p); } catch { ok = false; }
+      if (ok) kept.push(p);
+      else edgesRemoved++;
+    }
+    if (kept.length === 0) delete db[k];
+    else if (kept.length !== db[k].length) db[k] = kept;
+  }
+  await saveDb(db);
+  return { ok: true, edgesRemoved, sourcesRemoved };
+});
+
+// 重新指定失效关联的新位置：弹框选择文件的新位置，再把库里所有 oldPath 改指 newPath
+ipcMain.handle('assoc:relink', async (e, oldPath) => {
+  try {
+    if (typeof oldPath !== 'string' || !oldPath) return { ok: false, error: '路径无效' };
+    const win = BrowserWindow.fromWebContents(e.sender) || undefined;
+    // 无扩展名按文件夹处理（旧路径已不存在，无法 stat 判断类型）
+    const isLikelyDir = !path.extname(oldPath);
+    const r = await dialog.showOpenDialog(win, {
+      title: `选择「${path.basename(oldPath)}」的新位置`,
+      defaultPath: path.dirname(oldPath),
+      properties: [isLikelyDir ? 'openDirectory' : 'openFile']
+    });
+    if (r.canceled || !r.filePaths || !r.filePaths.length) return { ok: false, canceled: true };
+    const newPath = r.filePaths[0];
+    if (oldPath.toLowerCase() === newPath.toLowerCase()) return { ok: false, error: '新旧位置相同' };
+    const before = JSON.stringify(await loadDb());
+    await rewritePathsInDb([{ from: oldPath, to: newPath }]);
+    const after = JSON.stringify(await loadDb());
+    if (before === after) return { ok: false, error: '没有指向该旧路径的记录' };
+    return { ok: true, path: newPath };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
 });
 
 ipcMain.handle('assoc:pick', async (e, sourcePath) => {

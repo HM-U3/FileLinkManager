@@ -266,6 +266,16 @@ body {
 .tool-btn.primary:hover:not(:disabled) { filter: brightness(1.1); }
 .tool-btn.danger { color: #ff8a80; }
 .tool-btn.danger:hover:not(:disabled) { background: #3a1a1a; border-color: #c43030; }
+.tool-btn.subtle {
+  color: var(--text-dim);
+  font-size: 11px;
+  opacity: .9;
+}
+.tool-btn.subtle:hover:not(:disabled) {
+  color: #ffc266;
+  border-color: color-mix(in srgb, #ffb340 50%, transparent);
+  background: color-mix(in srgb, #ffb340 12%, var(--bg-elev2));
+}
 .sep { width: 1px; height: 22px; background: var(--border); margin: 0 4px; }
 .spacer { flex: 1 1 0; min-width: 0; }
 .status {
@@ -545,6 +555,71 @@ body.col-resizing * { cursor: col-resize !important; }
 }
 .assoc-title { display: flex; align-items: center; gap: 6px; font-weight: 600; }
 .assoc-icon { color: var(--accent-2); }
+
+/* 右上角 ⓘ 帮助图标：悬停 / 键盘聚焦显示操作说明 */
+.assoc-help {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  color: var(--text-faint);
+  cursor: help;
+  outline: none;
+  flex: 0 0 auto;
+  transition: color .12s, background .12s;
+}
+.assoc-help:hover,
+.assoc-help:focus-visible {
+  color: var(--accent-2);
+  background: color-mix(in srgb, var(--accent-2) 14%, transparent);
+}
+.assoc-help-pop {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 272px;
+  max-width: 80vw;
+  padding: 10px 12px;
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.55);
+  color: var(--text-dim);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.7;
+  white-space: normal;
+  z-index: 600;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-4px);
+  transition: opacity .14s, transform .14s, visibility .14s;
+  pointer-events: none;
+}
+.assoc-help-pop b { color: var(--text); font-weight: 600; }
+/* 小三角 */
+.assoc-help-pop::before {
+  content: '';
+  position: absolute;
+  top: -5px;
+  right: 6px;
+  width: 9px;
+  height: 9px;
+  background: var(--bg-hover);
+  border-left: 1px solid var(--border);
+  border-top: 1px solid var(--border);
+  transform: rotate(45deg);
+}
+.assoc-help:hover .assoc-help-pop,
+.assoc-help:focus-visible .assoc-help-pop,
+.assoc-help:focus-within .assoc-help-pop {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
 .assoc-target {
   padding: 12px;
   overflow-y: auto;
@@ -598,12 +673,6 @@ body.col-resizing * { cursor: col-resize !important; }
   border-top: 1px solid var(--border);
 }
 .assoc-actions .tool-btn { flex: 1; min-width: 100px; }
-.assoc-tip {
-  font-size: 10px;
-  color: var(--text-faint);
-  padding: 8px 12px 12px;
-  line-height: 1.5;
-}
 .assoc-reverse {
   padding: 10px 12px;
   border-top: 1px solid var(--border);
@@ -939,6 +1008,27 @@ body.col-resizing * { cursor: col-resize !important; }
   color: var(--danger) !important;
   text-decoration: line-through;
 }
+/* 失效关联项右侧的“重新指定位置”按钮 */
+.assoc-fix {
+  flex: 0 0 auto;
+  align-self: center;
+  height: 22px;
+  padding: 0 8px;
+  font-size: 10px;
+  font-family: inherit;
+  color: #ffc266;
+  background: color-mix(in srgb, #ffb340 14%, transparent);
+  border: 1px solid color-mix(in srgb, #ffb340 45%, transparent);
+  border-radius: 5px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all .12s;
+}
+.assoc-fix:hover {
+  background: color-mix(in srgb, #ffb340 30%, transparent);
+  border-color: #ffb340;
+  color: #ffe0b0;
+}
 .ctx-menu .ic-wrap {
   width: 18px;
   display: inline-block;
@@ -1239,15 +1329,6 @@ body.col-resizing * { cursor: col-resize !important; }
   white-space: nowrap;
 }
 .ver-date { font-size: 12px; color: var(--text-dim); white-space: nowrap; }
-.ver-cost {
-  margin-left: auto;
-  padding: 2px 9px;
-  border-radius: 999px;
-  font-size: 11px;
-  color: var(--accent-2);
-  background: color-mix(in srgb, var(--accent-2) 12%, transparent);
-  white-space: nowrap;
-}
 .ver-desc { margin-top: 8px; font-size: 13px; line-height: 1.7; color: var(--text); }
 
 /* ---------- 关于页 ---------- */

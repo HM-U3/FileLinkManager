@@ -1,6 +1,6 @@
 {
   "name": "file-link-manager",
-  "version": "1.0.18",
+  "version": "1.0.21",
   "description": "Windows file manager with file association feature",
   "main": "main.js",
   "author": "wjgl",

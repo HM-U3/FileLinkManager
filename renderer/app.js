@@ -761,7 +761,6 @@
     updateAssocButtons();
     const target = $('assoc-target');
     target.innerHTML = `
-      <div class="sb-title">关联列表（文件或文件夹）</div>
       <ul class="assoc-list" id="assoc-list"></ul>
     `;
     const list = await api.assoc.list(filePath);
@@ -848,6 +847,14 @@
       api.stat.file(p).then(st => {
         if (!st || !st.ok) {
           li.classList.add('missing');
+          // 失效项显示“重新指定位置”小按钮：文件被移动后可直接改指新位置
+          const fix = document.createElement('button');
+          fix.className = 'assoc-fix';
+          fix.type = 'button';
+          fix.title = '文件已不在原位置（可能被移动/重命名）。点击选择它的新位置，修复此关联';
+          fix.textContent = '📂 定位';
+          fix.onclick = (ev) => { ev.stopPropagation(); relinkAssoc(p); };
+          li.appendChild(fix);
         } else if (st.isDir) {
           li.dataset.isdir = '1';
           const ic = li.querySelector('.ic');
@@ -903,6 +910,31 @@
     state.anchorPath = target;
     syncSelection([target]);
     syncSelectionPanel();
+  }
+
+  // 失效关联：选择文件的新位置，把链接改指过去（一条旧路径在库里出现的所有位置都会修正）
+  async function relinkAssoc(oldPath) {
+    const r = await api.assoc.relink(oldPath);
+    if (!r) return;
+    if (r.canceled) return;
+    if (!r.ok) { toast(r.error || '修复失败', 'error'); return; }
+    state.selectedAssoc.clear();
+    toast('已修复关联，链接指向新位置 ✅', 'success');
+    await refresh();
+    restoreSelectionAfterRefresh(state.assocTarget);
+  }
+
+  // 一键清理所有指向“已不存在路径”的关联记录
+  async function pruneMissingAssoc() {
+    const ok = window.confirm('将删除所有指向“已被移动或删除的文件”的关联记录。\n\n确定清理吗？（建议先在「设置 → 关联数据备份」里备份）');
+    if (!ok) return;
+    const r = await api.assoc.pruneMissing();
+    if (!r || !r.ok) { toast('清理失败', 'error'); return; }
+    const total = (r.edgesRemoved || 0);
+    state.selectedAssoc.clear();
+    toast(total ? `已清理 ${total} 条失效关联${r.sourcesRemoved ? `（含 ${r.sourcesRemoved} 个已失效的源）` : ''}` : '没有需要清理的失效关联', total ? 'success' : 'info');
+    await refresh();
+    restoreSelectionAfterRefresh(state.assocTarget);
   }
 
   async function openAssoc() {
@@ -1260,7 +1292,7 @@
       <li data-path="${escapeHtml(q.path)}" data-custom="${q.custom ? 1 : 0}" class="${state.currentDir === q.path ? 'active' : ''}" title="${escapeHtml(q.path)}">
         <span class="ic">${q.custom ? '📌' : '📂'}</span>
         <span class="lbl">${escapeHtml(q.name)}</span>
-        <span class="quick-rm" title="${q.custom ? '从快速访问移除' : '隐藏（点 ↺ 可恢复）'}">×</span>
+        <span class="quick-rm" title="从快速访问移除">×</span>
       </li>
     `).join('');
     ul.querySelectorAll('li').forEach(li => {
@@ -1271,7 +1303,6 @@
       };
       li.onclick = () => navigate(li.dataset.path);
     });
-    $('btn-quick-restore').style.display = state.hiddenQuick.length ? '' : 'none';
   }
 
   // Pick a folder and pin it to quick access
@@ -1295,19 +1326,11 @@
     toast('已从快速访问移除');
   }
 
-  // 内置项：隐藏（可通过 ↺ 恢复）
+  // 内置项：从快速访问移除（需要时可用 ＋ 重新添加任意文件夹）
   async function hideQuick(p) {
     const r = await api.quick.hide(p);
     state.hiddenQuick = (r && r.hidden) || [];
     renderQuick();
-    toast('已隐藏，可点 ↺ 恢复');
-  }
-
-  async function restoreQuick() {
-    const r = await api.quick.restore();
-    state.hiddenQuick = (r && r.hidden) || [];
-    renderQuick();
-    toast('已恢复默认快速访问项');
   }
 
   function refreshQuickActive() {
@@ -1489,6 +1512,7 @@
         toast('恢复失败：' + ((r && r.error) || '未知错误'), 'error');
       }
     };
+    $('st-prune-missing').onclick = pruneMissingAssoc;
   }
 
   // ---------- Context menu ----------
@@ -1600,7 +1624,6 @@
   function wire() {
     registerContextMenuDismissal();
     $('btn-quick-add').onclick = addQuick;
-    $('btn-quick-restore').onclick = restoreQuick;
 
     // 常驻关联图谱：放大 / 收起
     $('rp-size').onclick = () => { state.graph.large = !state.graph.large; renderGraphPanel(); };
@@ -1880,8 +1903,12 @@
         d.onclick = () => { closeContextMenu(); fn(); };
         menu.appendChild(d);
       };
-      make('打开关联项目', '↗', openAssoc);
-      make('在资源管理器中定位', '📂', revealAssoc);
+      if (li.classList.contains('missing')) {
+        make('重新指定位置…', '📂', () => relinkAssoc(li.dataset.path));
+      } else {
+        make('打开关联项目', '↗', openAssoc);
+        make('在资源管理器中定位', '📂', revealAssoc);
+      }
       const sep = document.createElement('div'); sep.className = 'sep'; menu.appendChild(sep);
       make('取消关联', '−', removeAssoc);
       document.body.appendChild(menu);

@@ -33,7 +33,6 @@
       <div class="quick">
         <div class="sb-title-row">
           <div class="sb-title">快速访问</div>
-          <button id="btn-quick-restore" class="sb-mini-btn" title="恢复默认项" style="display:none">↺</button>
           <button id="btn-quick-add" class="sb-mini-btn" title="添加文件夹到快速访问…">＋</button>
         </div>
         <ul id="quick-list"></ul>
@@ -105,6 +104,15 @@
         <span class="assoc-icon">🔗</span>
         <span>文件 / 文件夹关联</span>
       </div>
+      <span class="assoc-help" id="assoc-help" tabindex="0">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.9 9a2.1 2.1 0 0 1 4.2 0c0 1.4-2.1 1.9-2.1 3.6"/><circle cx="12" cy="17.4" r="0.6" fill="currentColor" stroke="none"/></svg>
+        <span class="assoc-help-pop">
+          · 双击关联项目可打开：文件夹在本程序内进入，文件用默认程序打开；右键可定位到所在目录。<br/>
+          · <b>按住 Ctrl 点击可多选</b>已关联项目，批量打开 / 取消关联。<br/>
+          · 被其他项目引用时，会显示在下方“被引用”列表。<br/>
+          · 移动或改名后失效（红色划掉）的项目：右键可“重新指定位置”修复；也可在「设置 → 关联数据备份」里一键清理。
+        </span>
+      </span>
     </div>
     <div class="assoc-target" id="assoc-target">
       <div class="empty-hint">从左侧列表中选择一个文件或文件夹，即可查看或管理其关联项目。</div>
@@ -114,9 +122,6 @@
       <button id="btn-assoc-open" class="tool-btn" disabled>↗ 打开所选关联</button>
       <button id="btn-assoc-reveal" class="tool-btn" disabled>📂 在资源管理器中定位</button>
       <button id="btn-assoc-remove" class="tool-btn danger" disabled>− 取消关联</button>
-    </div>
-    <div class="assoc-tip">
-      双击关联项目可打开（文件夹在本程序内进入，文件用默认程序打开）；右键可定位到所在目录。被反向引用的项目会出现在下方。
     </div>
     <div class="assoc-reverse" id="assoc-reverse" style="display:none;">
       <div class="sb-title">被引用（其他项目指向它）</div>
@@ -189,6 +194,10 @@
                   <button id="st-backup-merge" class="tool-btn" type="button">♻ 恢复备份（合并）</button>
                   <button id="st-backup-replace" class="tool-btn danger" type="button">恢复备份（覆盖）</button>
                 </div>
+                <div class="st-field-hint">文件被移动或改名后，失效链接会在关联列表中以红色划掉显示；也可在该项目上右键“重新指定位置”直接修复。</div>
+                <div class="st-row st-backup-row">
+                  <button id="st-prune-missing" class="tool-btn subtle" type="button">🧹 清理所有失效链接…</button>
+                </div>
               </div>
             </div>
           </section>
@@ -229,11 +238,21 @@
                 <div class="ver-rail"><span class="ver-dot"></span></div>
                 <div class="ver-card">
                   <div class="ver-card-head">
+                    <span class="ver-badge">v1.0.21</span>
+                    <span class="ver-date">📅 2026.10.14</span>
+                  </div>
+                  <div class="ver-desc">是新的版本 ヾ(≧▽≦*)o 优化了好多地方呢！</div>
+                </div>
+              </div>
+
+              <div class="ver-item">
+                <div class="ver-rail"><span class="ver-dot"></span></div>
+                <div class="ver-card">
+                  <div class="ver-card-head">
                     <span class="ver-badge">v1.0.17</span>
                     <span class="ver-date">📅 2026.10.13</span>
-                    <span class="ver-cost">⏱️ 耗时 20 小时</span>
                   </div>
-                  <div class="ver-desc">终于完成全部功能的构建啦~ 🎉</div>
+                  <div class="ver-desc">耗时 20 小时，终于完成全部功能的构建啦~ 🎉</div>
                 </div>
               </div>
 

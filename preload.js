@@ -82,7 +82,9 @@ contextBridge.exposeInMainWorld('api', {
     removeMany: (filePath, relatedPaths) => ipcRenderer.invoke('assoc:removeMany', filePath, relatedPaths),
     pick: (filePath) => ipcRenderer.invoke('assoc:pick', filePath),
     search: (filePath) => ipcRenderer.invoke('assoc:search', filePath),
-    graph: (filePath) => ipcRenderer.invoke('assoc:graph', filePath)
+    graph: (filePath) => ipcRenderer.invoke('assoc:graph', filePath),
+    pruneMissing: () => ipcRenderer.invoke('assoc:pruneMissing'),
+    relink: (oldPath) => ipcRenderer.invoke('assoc:relink', oldPath)
   },
   // 关联链接备份 / 恢复（升级软件前保存）
   backup: {
