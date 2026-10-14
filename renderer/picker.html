@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>选择项目</title>
+  <link rel="stylesheet" href="picker.css" />
+</head>
+<body>
+  <div class="picker">
+    <div class="picker-body">
+      <!-- 左侧栏：快速访问 / 最近访问 / 驱动器（与主窗一致，不含关联图谱） -->
+      <aside class="side-left">
+        <div class="side-scroll">
+          <div class="sb-group">
+            <div class="sb-title-row">
+              <div class="sb-title">快速访问</div>
+              <button id="btn-quick-restore" class="sb-mini-btn" title="恢复默认项" style="display:none">↺</button>
+              <button id="btn-quick-add" class="sb-mini-btn" title="添加文件夹到快速访问…">＋</button>
+            </div>
+            <ul id="quick-list"></ul>
+          </div>
+          <div class="sb-group" id="recent-section">
+            <div class="sb-title">最近访问</div>
+            <ul id="recent-list"></ul>
+          </div>
+          <div class="sb-group">
+            <div class="sb-title">驱动器</div>
+            <ul id="drives-list"></ul>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 中间：导航栏 + 文件网格 -->
+      <section class="center">
+        <div class="nav-bar">
+          <button id="btn-back" class="nav-btn" title="后退">‹</button>
+          <button id="btn-up" class="nav-btn" title="上级">↑</button>
+          <button id="btn-home" class="nav-btn" title="主目录">⌂</button>
+          <input id="addr" type="text" spellcheck="false" placeholder="输入路径后回车…" />
+          <button id="btn-refresh" class="nav-btn" title="刷新">↻</button>
+        </div>
+
+        <!-- 文件区：文件与文件夹混合显示，单击勾选，双击文件夹进入 -->
+        <div class="grid-wrap">
+          <div class="file-grid" id="file-grid"></div>
+          <div class="empty" id="empty" style="display:none;">这个文件夹是空的</div>
+        </div>
+      </section>
+
+      <!-- 右侧栏：已选区，支持跨目录累积，可逐项移除 -->
+      <aside class="side-right" id="sel-bar">
+        <div class="sel-head">
+          <span class="sel-title">已选 <b id="sel-count">0</b> 项</span>
+          <button id="btn-clear" class="link-btn">清空</button>
+        </div>
+        <div class="sel-hint">可进入其他文件夹继续添加</div>
+        <div class="sel-chips" id="sel-chips"></div>
+      </aside>
+    </div>
+
+    <!-- 底部操作 -->
+    <div class="footer">
+      <button id="btn-pick-dir" class="btn">＋ 选择当前文件夹</button>
+      <div class="spacer"></div>
+      <button id="btn-cancel" class="btn">取消</button>
+      <button id="btn-ok" class="btn primary" disabled>确定</button>
+    </div>
+  </div>
+
+  <script src="picker.js"></script>
+</body>
+</html>

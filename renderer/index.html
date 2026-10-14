@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>FileLinkManager</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="titlebar">
+    <div class="brand">
+      <span class="logo">⬡</span>
+      <span class="brand-name">FileLinkManager</span>
+    </div>
+    <div class="addrbar">
+      <button id="btn-back" class="icon-btn" title="后退：回到上一个访问的文件夹 (Alt+←)" disabled>←</button>
+      <button id="btn-up" class="icon-btn" title="上级：打开当前文件夹的父目录 (Alt+↑)">↑</button>
+      <input id="addr" type="text" placeholder="输入路径或选择一个文件夹..." />
+      <button id="btn-refresh" class="icon-btn" title="刷新 (F5)">↻</button>
+    </div>
+    <div class="window-actions">
+      <button id="btn-settings" class="win-btn settings-entry" title="设置">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        <span>设置</span>
+      </button>
+      <button id="win-min" class="win-btn">—</button>
+      <button id="win-max" class="win-btn">▢</button>
+      <button id="win-close" class="win-btn close">✕</button>
+    </div>
+  </header>
+
+  <div class="sidebar">
+    <div class="sidebar-scroll">
+      <div class="quick">
+        <div class="sb-title-row">
+          <div class="sb-title">快速访问</div>
+          <button id="btn-quick-restore" class="sb-mini-btn" title="恢复默认项" style="display:none">↺</button>
+          <button id="btn-quick-add" class="sb-mini-btn" title="添加文件夹到快速访问…">＋</button>
+        </div>
+        <ul id="quick-list"></ul>
+      </div>
+      <div class="quick" id="recent-section">
+        <div class="sb-title">最近访问</div>
+        <ul id="recent-list"></ul>
+      </div>
+      <div class="quick">
+        <div class="sb-title">驱动器</div>
+        <ul id="drives-list"></ul>
+      </div>
+    </div>
+
+    <!-- 侧栏底部常驻关联图谱：小态串文件名 / ⤢ 放大后为可拖动箭头图 -->
+    <div class="rel-panel mode-chain" id="rel-panel">
+      <div class="rp-body">
+        <div class="rp-head">
+          <span class="rp-title">🔗 关联图谱</span>
+          <span class="rp-count" id="rp-count"></span>
+          <span class="rp-spacer"></span>
+          <button class="rp-tab" id="rp-size" title="放大"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 7 L13 3 M9.5 3.5 L13 3 L12.5 6.5"/><path d="M7 9 L3 13 M3.5 9.5 L3 13 L6.5 12.5"/></svg></button>
+        </div>
+        <div class="rp-content" id="rp-content"></div>
+      </div>
+    </div>
+  </div>
+
+  <main class="content">
+    <!-- 文件操作（新建/复制/剪切/粘贴/重命名/删除/打开等）已全部移入右键菜单，
+         并支持 Ctrl+C / Ctrl+X / Ctrl+V / F2 / Delete 等快捷键 -->
+    <div class="toolbar">
+      <div class="spacer"></div>
+      <div class="view-controls">
+        <select id="sort-key" class="view-select" title="排序方式">
+          <option value="name">按名称</option>
+          <option value="mtime">按修改日期</option>
+          <option value="type">按类型</option>
+          <option value="size">按大小</option>
+        </select>
+        <button id="sort-dir" class="icon-btn" title="升序 / 降序（再次点击切换）">↑</button>
+        <span class="sep"></span>
+        <button id="view-grid" class="icon-btn" title="网格视图">▦</button>
+        <button id="view-list" class="icon-btn" title="列表视图">☰</button>
+        <span class="sep"></span>
+        <button id="zoom-out" class="icon-btn" title="缩小图标（Ctrl + 鼠标滚轮）">－</button>
+        <button id="zoom-in" class="icon-btn" title="放大图标（Ctrl + 鼠标滚轮）">＋</button>
+      </div>
+      <div class="sep"></div>
+      <div class="status" id="status-text">未选择</div>
+    </div>
+
+    <div class="grid-wrap">
+      <!-- 列表视图专用表头（点击列名排序），网格视图下隐藏 -->
+      <div class="list-header" id="list-header">
+        <span class="lh-icon"></span>
+        <button class="lh-col" data-sort="name">名称<span class="lh-resizer" data-col="name" title="拖动调整列宽"></span></button>
+        <button class="lh-col lh-right" data-sort="mtime">修改日期<span class="lh-resizer" data-col="date" title="拖动调整列宽"></span></button>
+        <button class="lh-col" data-sort="type">类型<span class="lh-resizer" data-col="type" title="拖动调整列宽"></span></button>
+        <button class="lh-col lh-right" data-sort="size">大小</button>
+      </div>
+      <div class="file-grid" id="file-grid"></div>
+    </div>
+  </main>
+
+  <aside class="assoc-panel" id="assoc-panel">
+    <div class="assoc-header">
+      <div class="assoc-title">
+        <span class="assoc-icon">🔗</span>
+        <span>文件 / 文件夹关联</span>
+      </div>
+    </div>
+    <div class="assoc-target" id="assoc-target">
+      <div class="empty-hint">从左侧列表中选择一个文件或文件夹，即可查看或管理其关联项目。</div>
+    </div>
+    <div class="assoc-actions">
+      <button id="btn-assoc-add" class="tool-btn primary" disabled>＋ 添加关联…</button>
+      <button id="btn-assoc-open" class="tool-btn" disabled>↗ 打开所选关联</button>
+      <button id="btn-assoc-reveal" class="tool-btn" disabled>📂 在资源管理器中定位</button>
+      <button id="btn-assoc-remove" class="tool-btn danger" disabled>− 取消关联</button>
+    </div>
+    <div class="assoc-tip">
+      双击关联项目可打开（文件夹在本程序内进入，文件用默认程序打开）；右键可定位到所在目录。被反向引用的项目会出现在下方。
+    </div>
+    <div class="assoc-reverse" id="assoc-reverse" style="display:none;">
+      <div class="sb-title">被引用（其他项目指向它）</div>
+      <ul id="reverse-list"></ul>
+    </div>
+  </aside>
+
+  <div class="toast" id="toast"></div>
+
+  <!-- 设置面板（左侧分类导航，即时保存） -->
+  <div class="settings-overlay" id="settings-overlay">
+    <div class="settings-modal" role="dialog" aria-modal="true" aria-label="设置">
+      <div class="settings-head">
+        <span class="settings-title">⚙ 设置</span>
+        <button id="st-close" class="icon-btn" title="关闭">✕</button>
+      </div>
+
+      <div class="settings-main">
+        <nav class="st-nav" id="st-nav">
+          <button class="st-nav-item active" data-tab="general"><span class="st-nav-ic">🚀</span>启动与常规</button>
+          <button class="st-nav-item" data-tab="files"><span class="st-nav-ic">📁</span>文件列表</button>
+          <button class="st-nav-item" data-tab="donate"><span class="st-nav-ic">💛</span>赞赏与捐赠</button>
+          <button class="st-nav-item" data-tab="about"><span class="st-nav-ic">ℹ️</span>关于</button>
+        </nav>
+
+        <div class="settings-body">
+
+          <!-- ========== 启动与常规 ========== -->
+          <section class="st-tab active" data-tab="general">
+            <div class="st-sec">
+              <div class="st-sec-title">启动时打开</div>
+              <div class="st-stack">
+                <label class="st-radio"><input type="radio" name="st-startup" value="last" /> 打开上次关闭前所在的文件夹</label>
+                <label class="st-radio"><input type="radio" name="st-startup" value="home" /> 打开用户主目录</label>
+                <label class="st-radio"><input type="radio" name="st-startup" value="custom" /> 打开指定文件夹：</label>
+                <div class="st-custom-row">
+                  <input id="st-custom-path" type="text" readonly placeholder="未选择，点击右侧“浏览…”" />
+                  <button id="st-custom-browse" class="tool-btn">浏览…</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="st-sec">
+              <div class="st-sec-title">最近访问</div>
+              <label class="st-check"><input type="checkbox" id="st-recent-enabled" /> 记录并在左侧显示最近访问的文件夹</label>
+              <div class="st-row">
+                <label class="st-field-label" for="st-recent-limit">保留条数</label>
+                <input id="st-recent-limit" class="st-num" type="number" min="0" max="10" step="1" inputmode="numeric" />
+                <span class="st-field-label">条（0–10 的整数，0 表示不保留）</span>
+                <button id="st-recent-clear" class="tool-btn">清空记录</button>
+              </div>
+            </div>
+
+            <div class="st-sec">
+              <div class="st-sec-title">窗口与托盘</div>
+              <div class="st-stack">
+                <label class="st-check"><input type="checkbox" id="st-auto-start" /> 开机时自动启动（登录 Windows 后驻留后台）</label>
+                <label class="st-check"><input type="checkbox" id="st-remember-window" /> 记住窗口的大小和位置</label>
+                <label class="st-check"><input type="checkbox" id="st-close-tray" /> 点击关闭按钮时最小化到托盘（取消勾选则直接退出程序）</label>
+              </div>
+            </div>
+
+            <div class="st-sec">
+              <div class="st-sec-title">关联数据备份</div>
+              <div class="st-stack">
+                <div class="st-field-hint">把全部“文件 / 文件夹关联链接”导出为一个备份文件；升级或重装软件后，可用它把链接恢复回来。</div>
+                <div class="st-row st-backup-row">
+                  <button id="st-backup-export" class="tool-btn primary" type="button">💾 备份当前链接…</button>
+                  <button id="st-backup-merge" class="tool-btn" type="button">♻ 恢复备份（合并）</button>
+                  <button id="st-backup-replace" class="tool-btn danger" type="button">恢复备份（覆盖）</button>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ========== 文件列表 ========== -->
+          <section class="st-tab" data-tab="files">
+            <div class="st-sec">
+              <div class="st-sec-title">显示</div>
+              <div class="st-stack">
+                <label class="st-check"><input type="checkbox" id="st-show-hidden" /> 显示以 “.” 开头的隐藏项目（如 .config）</label>
+                <label class="st-check"><input type="checkbox" id="st-show-badge" /> 在文件 / 文件夹名称旁显示关联数量标记（🔗）</label>
+              </div>
+            </div>
+          </section>
+
+          <!-- ========== 赞赏与捐赠 ========== -->
+          <section class="st-tab" data-tab="donate">
+            <div class="donate-wrap">
+              <div class="donate-title">💛 赞赏与捐赠</div>
+              <div class="donate-text">
+                TRAE WORK：我没有积分吃了······饿啊······::&gt;_&lt;::<br />
+                所以······可以赏点积分吗？谢谢喵！⁄(⁄ ⁄•⁄ω⁄•⁄ ⁄)⁄
+              </div>
+              <img class="donate-qr" src="../assets/donate-qr.jpg" alt="拾光的赞赏码" title="微信扫码赞赏" />
+              <div class="donate-thanks">感谢每一位投喂的小伙伴，你们的支持是更新的动力喵～</div>
+            </div>
+          </section>
+
+          <!-- ========== 关于 ========== -->
+          <section class="st-tab" data-tab="about">
+            <div class="about-hero">
+              <div class="about-logo">⬡</div>
+              <div class="about-name">FileLinkManager</div>
+              <div class="about-slogan">给文件和文件夹牵线搭桥的小工具</div>
+            </div>
+            <div class="about-card">
+              <div class="about-row">
+                <span class="about-k">版本号</span>
+                <span class="about-v" id="st-version">—</span>
+              </div>
+              <div class="about-row">
+                <span class="about-k">反馈邮箱</span>
+                <span class="about-v about-mail" id="st-mail">17867857959@163.com</span>
+                <button class="copy-btn" id="st-mail-copy" title="复制邮箱地址">复制</button>
+              </div>
+              <div class="about-row">
+                <span class="about-k">开发者</span>
+                <span class="about-v">TRAE</span>
+              </div>
+              <div class="about-row">
+                <span class="about-k">模型</span>
+                <span class="about-v">Seed-2.1-Pro-0915</span>
+              </div>
+              <div class="about-row">
+                <span class="about-k">测试</span>
+                <span class="about-v">拾光</span>
+              </div>
+              <div class="about-credit">测试······测试也很辛苦的喵！</div>
+            </div>
+          </section>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading overlay: visible on first paint, hidden after initial load -->
+  <div class="loading-overlay show" id="loading-overlay">
+    <div class="loading-box">
+      <div class="spinner"></div>
+      <div class="loading-title">FileLinkManager</div>
+      <div class="loading-text">正在加载…</div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,44 @@
+{
+  "name": "file-link-manager",
+  "version": "1.0.17",
+  "description": "Windows file manager with file association feature",
+  "main": "main.js",
+  "author": "wjgl",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win --x64",
+    "dist:portable": "electron-builder --win portable --x64"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0"
+  },
+  "build": {
+    "appId": "com.wjgl.filelinkmanager",
+    "productName": "FileLinkManager",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "renderer/**/*",
+      "assets/**/*"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
+      ],
+      "signAndEditExecutable": false,
+      "signtoolOptions": null
+    },
+    "portable": {
+      "artifactName": "FileLinkManager-Portable-${version}.exe",
+      "unpackDirName": true
+    }
+  }
+}
