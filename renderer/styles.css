@@ -1166,6 +1166,90 @@ body.col-resizing * { cursor: col-resize !important; }
 .st-backup-row { flex-wrap: wrap; row-gap: 8px; }
 .st-backup-row .tool-btn { white-space: nowrap; }
 
+/* ============ 设置：历史版本（时间线） ============ */
+.ver-page-head { padding: 2px 2px 14px; }
+.ver-page-title { font-size: 16px; font-weight: 700; color: var(--text); }
+.ver-page-sub { margin-top: 4px; font-size: 12px; color: var(--text-dim); }
+
+.ver-timeline { display: flex; flex-direction: column; }
+.ver-item { display: flex; align-items: stretch; }
+
+/* 左侧竖轨：圆点 + 上下连接竖线 */
+.ver-rail {
+  position: relative;
+  width: 22px;
+  flex: 0 0 22px;
+  display: flex;
+  justify-content: center;
+}
+.ver-rail::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 2px;
+  transform: translateX(-50%);
+  background: var(--border);
+}
+/* 最后一条不再向下延伸 */
+.ver-item:last-child .ver-rail::before { bottom: auto; height: 14px; }
+/* 第一条从圆点开始，不向上出头 */
+.ver-item:first-child .ver-rail::before { top: 14px; }
+
+.ver-dot {
+  position: relative;
+  z-index: 1;
+  margin-top: 14px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: linear-gradient(180deg, #4c8dff, #2d6cd6);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+  flex: 0 0 auto;
+}
+
+.ver-card {
+  flex: 1;
+  min-width: 0;
+  margin: 4px 0 14px 10px;
+  padding: 12px 14px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  transition: border-color .15s, box-shadow .15s;
+}
+.ver-card:hover {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  box-shadow: 0 4px 16px rgba(0, 0, 0, .18);
+}
+.ver-card-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.ver-badge {
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(180deg, #4c8dff, #2d6cd6);
+  white-space: nowrap;
+}
+.ver-date { font-size: 12px; color: var(--text-dim); white-space: nowrap; }
+.ver-cost {
+  margin-left: auto;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  color: var(--accent-2);
+  background: color-mix(in srgb, var(--accent-2) 12%, transparent);
+  white-space: nowrap;
+}
+.ver-desc { margin-top: 8px; font-size: 13px; line-height: 1.7; color: var(--text); }
+
 /* ---------- 关于页 ---------- */
 .about-hero {
   text-align: center;
