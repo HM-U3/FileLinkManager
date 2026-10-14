@@ -234,14 +234,35 @@ html, body {
   align-items: center;
   justify-content: center;
   font-size: 10px;
+  line-height: 1;
   color: #fff;
-  pointer-events: none;
   z-index: 3;
 }
 .file-item.selected .tick {
   display: flex;
   background: var(--accent);
   border-color: var(--accent);
+}
+/* 文件夹：未勾选时悬停显现“＋”勾选小框（单击文件夹本身是进入） */
+.file-item[data-isdir="1"]:not(.selected):hover .tick {
+  display: flex;
+  cursor: pointer;
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.file-item[data-isdir="1"] .tick { pointer-events: auto; cursor: pointer; }
+.tick-plus { display: block; font-size: 12px; }
+.tick-check { display: none; }
+.file-item.selected .tick .tick-plus { display: none; }
+.file-item.selected .tick .tick-check { display: block; }
+
+/* 跳转定位时的闪烁提示 */
+.file-item.flash {
+  animation: flm-flash 1.4s ease-out 2;
+}
+@keyframes flm-flash {
+  0%   { box-shadow: 0 0 0 2px var(--accent-2); background: color-mix(in srgb, var(--accent-2) 22%, transparent); }
+  100% { box-shadow: 0 0 0 0 transparent; background: transparent; }
 }
 .empty {
   text-align: center;
@@ -328,15 +349,15 @@ body.marqueeing .file-item * {
 }
 .link-btn:hover { color: var(--text); }
 .sel-chips {
-  flex: 1;
+  flex: 1 1 auto;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 5px;
-  min-height: 0;
+  min-height: 70px;
 }
 .sel-chips:empty::after {
-  content: '单击文件或文件夹进行选择；双击文件夹进入。';
+  content: '单击文件即勾选；单击文件夹进入（勾选文件夹点它左上角的 ＋，或 Ctrl+单击）。';
   color: var(--text-faint);
   font-size: 11px;
   line-height: 1.6;
@@ -368,6 +389,121 @@ body.marqueeing .file-item * {
   flex-shrink: 0;
 }
 .chip .chip-x:hover { color: #ff8a80; }
+
+/* ============ 右栏：源文件已有的关联 ============ */
+.exist-wrap {
+  flex: 0 1 46%;
+  min-height: 90px;
+  display: flex;
+  flex-direction: column;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+.exist-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.exist-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.exist-title span { font-weight: 600; }
+.exist-count {
+  flex-shrink: 0;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--bg-elev2);
+  border: 1px solid var(--border);
+  color: var(--accent-2);
+  font-size: 10px;
+  line-height: 15px;
+  text-align: center;
+}
+.exist-tip {
+  margin: 3px 0 6px;
+  font-size: 10.5px;
+  line-height: 1.5;
+  color: var(--text-faint);
+}
+.exist-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.exist-empty {
+  color: var(--text-faint);
+  font-size: 11px;
+  line-height: 1.6;
+  padding: 2px 1px;
+}
+.exist-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 8px;
+  background: var(--bg-elev2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: default;
+}
+.exist-item:hover { border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); }
+.exist-item.missing { opacity: .55; }
+.exist-ic { flex-shrink: 0; }
+.exist-meta {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.exist-n {
+  font-size: 11.5px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.exist-dir {
+  font-size: 10px;
+  color: var(--text-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.exist-go {
+  flex-shrink: 0;
+  height: 22px;
+  padding: 0 9px;
+  font-size: 11px;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  border-radius: 6px;
+  cursor: pointer;
+}
+.exist-go:hover {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+}
+.exist-picked {
+  display: none;
+  flex-shrink: 0;
+  font-size: 10px;
+  color: var(--accent-2);
+}
+.exist-item.picked .exist-picked { display: block; }
+.exist-item.picked .exist-go { opacity: .55; }
 
 /* ============ 底部 ============ */
 .footer {

@@ -708,7 +708,7 @@ ipcMain.handle('assoc:pick', async (e, sourcePath) => {
     startDir = app.getPath('home');
   }
   const parentWin = BrowserWindow.fromWebContents(e.sender);
-  return await openPicker(parentWin, { startDir, mode: 'both', title: '选择要关联的文件或文件夹' });
+  return await openPicker(parentWin, { startDir, mode: 'both', title: '选择要关联的文件或文件夹', target: sourcePath || '' });
 });
 
 // ============================================================
@@ -721,6 +721,7 @@ let pickerResolve = null;
 function openPicker(parentWin, opts = {}) {
   const startDir = opts.startDir || '';
   const mode = opts.mode === 'dir' ? 'dir' : 'both';
+  const target = opts.target || '';
   const title = opts.title || '选择文件或文件夹';
   return new Promise((resolve) => {
     const win = new BrowserWindow({
@@ -745,7 +746,8 @@ function openPicker(parentWin, opts = {}) {
     win.on('closed', () => {
       if (pickerResolve) { pickerResolve([]); pickerResolve = null; }
     });
-    const q = '?dir=' + encodeURIComponent(startDir) + '&mode=' + encodeURIComponent(mode);
+    const q = '?dir=' + encodeURIComponent(startDir) + '&mode=' + encodeURIComponent(mode)
+      + '&target=' + encodeURIComponent(target);
     win.loadFile(path.join(__dirname, 'renderer', 'picker.html'), { search: q });
   });
 }

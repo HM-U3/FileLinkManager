@@ -18,13 +18,17 @@
     customQuick: [],      // 用户固定的快速访问
     hiddenQuick: [],      // 被隐藏的内置快速访问路径
     recent: [],
-    drives: []
+    drives: [],
+    target: '',           // 正在为之添加关联的源文件/文件夹（仅 mode=both）
+    existing: [],         // 源文件已有的关联 [{ path, name, isDir, missing }]
+    flashPath: ''         // 跳转目录后需要高亮定位一次的路径
   };
 
   // 起始目录取自主进程传入的 query 参数；mode 决定选择对象
   // both = 文件/文件夹混合多选（添加关联）；dir = 仅文件夹单选（选目录）
   const qs = new URLSearchParams(location.search);
   const MODE = qs.get('mode') === 'dir' ? 'dir' : 'both';
+  state.target = MODE === 'both' ? (qs.get('target') || '') : '';
   if (MODE === 'dir') document.title = '选择文件夹';
   document.body.classList.toggle('mode-dir', MODE === 'dir');
 
@@ -60,16 +64,19 @@
   }
 
   // ---------- 导航 ----------
+  let navToken = null; // 同一路径的并发导航（如快速双击）只执行一次
   async function navigate(dir, pushHistory = true) {
-    if (!dir) return;
+    if (!dir || navToken === dir) return;
+    navToken = dir;
     let res;
     try {
       res = await api.dir.list(dir);
     } catch (err) {
       $('addr').value = state.currentDir;
+      navToken = null;
       return;
     }
-    if (!res || !res.ok) { $('addr').value = state.currentDir; return; }
+    if (!res || !res.ok) { $('addr').value = state.currentDir; navToken = null; return; }
     if (pushHistory && state.currentDir && state.currentDir !== res.path) {
       state.history.push(state.currentDir);
     }
@@ -82,6 +89,7 @@
     $('btn-back').disabled = state.history.length === 0;
     $('btn-up').disabled = false;
     syncSideActive();
+    navToken = null;
   }
 
   async function goBack() {
@@ -129,14 +137,31 @@
         outBadge.title = `关联了 ${outN} 个项目`;
         cell.appendChild(outBadge);
       }
+      // 文件夹左上角是“勾选本文件夹”的专用小框：未选时悬停显示 ＋，已选显示 ✓
+      // 文件不显示这个标记（单击文件行即勾选）
+      const tickHtml = it.isDir
+        ? '<span class="tick"><span class="tick-plus">＋</span><span class="tick-check">✓</span></span>'
+        : '<span class="tick">✓</span>';
       el.innerHTML = `
-        <span class="tick">✓</span>
+        ${tickHtml}
         <div class="ic ${ic.cls || ''}">${ic.svg ? `<span class="ic-svg">${ic.svg}</span>` : ic.ch}</div>
       `;
       el.appendChild(cell);
       frag.appendChild(el);
     }
     grid.appendChild(frag);
+
+    // 跳转目录后，把目标项滚动到视野中并闪烁提示一次
+    if (state.flashPath) {
+      const fp = state.flashPath;
+      state.flashPath = '';
+      const hit = grid.querySelector(`.file-item[data-path="${CSS.escape(fp)}"]`);
+      if (hit) {
+        hit.scrollIntoView({ block: 'center' });
+        hit.classList.add('flash');
+        setTimeout(() => hit.classList.remove('flash'), 1500);
+      }
+    }
   }
 
   // ---------- 右侧已选区 ----------
@@ -164,6 +189,85 @@
 
   function afterChosenChange() {
     renderChosen();
+    syncExistChosenMarks();
+  }
+
+  // ---------- 右栏：源文件已有的关联 ----------
+  async function loadExisting() {
+    if (!state.target) return;
+    $('exist-wrap').style.display = '';
+    const nm = api.path.basename(state.target) || state.target;
+    $('exist-name').textContent = nm;
+    let paths = [];
+    try {
+      paths = await api.assoc.list(state.target);
+    } catch { paths = []; }
+    // 并发查类型（stat 失败说明项目已被移动/删除，仍列出但灰显）
+    const infos = await Promise.all(paths.map(async (p) => {
+      let isDir = false;
+      let missing = false;
+      try {
+        const st = await api.stat.file(p);
+        if (st && st.ok) isDir = !!st.isDir;
+        else missing = true;
+      } catch { missing = true; }
+      return { path: p, name: api.path.basename(p) || p, isDir, missing };
+    }));
+    state.existing = infos;
+    renderExist();
+  }
+
+  function renderExist() {
+    const ul = $('exist-list');
+    ul.innerHTML = '';
+    $('exist-count').textContent = state.existing.length;
+    if (!state.existing.length) {
+      const li = document.createElement('div');
+      li.className = 'exist-empty';
+      li.textContent = '还没有关联，从中间挑选第一个吧～';
+      ul.appendChild(li);
+      return;
+    }
+    for (const it of state.existing) {
+      const li = document.createElement('div');
+      li.className = 'exist-item' + (it.missing ? ' missing' : '');
+      li.dataset.path = it.path;
+      li.title = it.missing ? it.path + '\n（可能已被移动或删除）' : it.path;
+      li.innerHTML = `
+        <span class="exist-ic">${it.isDir ? '📁' : '📄'}</span>
+        <span class="exist-meta">
+          <span class="exist-n">${escapeHtml(it.name)}</span>
+          <span class="exist-dir">${escapeHtml(api.path.dirname(it.path) || '')}</span>
+        </span>
+        <span class="exist-picked" title="已在本次选择中">已选</span>
+        <button class="exist-go" title="${it.isDir ? '打开这个文件夹' : '前往它所在的文件夹'}">前往</button>
+      `;
+      li.querySelector('.exist-go').onclick = (e) => {
+        e.stopPropagation();
+        gotoExist(it);
+      };
+      ul.appendChild(li);
+    }
+    syncExistChosenMarks();
+  }
+
+  // chosen 变化时，同步关联项上的“已选”小标记（已关联过的项目无需重复选择）
+  function syncExistChosenMarks() {
+    document.querySelectorAll('.exist-item').forEach(li => {
+      li.classList.toggle('picked', state.chosen.has(li.dataset.path));
+    });
+  }
+
+  async function gotoExist(it) {
+    let dir;
+    if (it.isDir) {
+      dir = it.path;          // 关联的是文件夹：直接进去
+      state.flashPath = '';
+    } else {
+      dir = api.path.dirname(it.path);  // 关联的是文件：去它所在目录，并定位该文件
+      state.flashPath = it.path;
+    }
+    await navigate(dir);
   }
 
   // ---------- 左侧栏 ----------
@@ -409,9 +513,25 @@
         if (item.isDir) navigate(item.path);
         return;
       }
+      // ---- 混合模式的新操作逻辑 ----
+      // 点文件夹左上角的“＋/✓”小框：只勾选该文件夹，不进入
+      if (e.target.closest('.tick')) {
+        toggleChoose(item, { additive: true });
+        return;
+      }
+      if (item.isDir) {
+        // 普通单击文件夹 = 进入；Ctrl / Shift 单击 = 勾选而不进入
+        if (e.ctrlKey || e.metaKey || e.shiftKey) {
+          toggleChoose(item, { additive: e.ctrlKey || e.metaKey, range: e.shiftKey });
+        } else {
+          navigate(item.path);
+        }
+        return;
+      }
+      // 文件：单击勾选；Ctrl 增删、Shift 区间连选
       toggleChoose(item, { additive: e.ctrlKey || e.metaKey, range: e.shiftKey });
     });
-    // 双击：文件夹进入；混合模式下双击文件直接确认（仅该文件）
+    // 双击：混合模式下双击文件直接确认（仅该文件）；文件夹单击即进入，这里仅作兜底
     grid.addEventListener('dblclick', (e) => {
       const el = e.target.closest('.file-item');
       if (!el) return;
@@ -471,6 +591,9 @@
     const recentEnabled = !settings || settings.recentEnabled !== false;
     $('recent-section').style.display = recentEnabled ? '' : 'none';
     if (recentEnabled) renderRecent(settings && typeof settings.recentLimit === 'number' ? settings.recentLimit : 8);
+
+    // 右栏加载源文件已有的关联（仅“为某文件添加关联”时存在 target）
+    loadExisting();
 
     await navigate(start || home);
   })();
