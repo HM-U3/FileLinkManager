@@ -226,6 +226,9 @@ body {
   flex-direction: column;
   background: var(--bg);
   min-width: 0;
+  /* grid 行内默认 min-height:auto（取 min-content），文件很多时会把 1fr 行撑爆，
+     导致 .grid-wrap 永远无滚动条；必须置 0 才能让行高受限、内容内部滚动 */
+  min-height: 0;
 }
 .toolbar {
   display: flex;
